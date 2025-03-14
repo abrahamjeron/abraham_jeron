@@ -42,7 +42,8 @@ export const handle = async ({ event, resolve }) => {
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'Origin': event.request.headers.get('origin') || '*'
+                    'Origin': event.request.headers.get('origin') || '*',
+                    'Authorization': event.request.headers.get('authorization')
                 },
                 body: body ? JSON.stringify(body) : undefined,
                 credentials: 'include'  // Include cookies
@@ -50,7 +51,6 @@ export const handle = async ({ event, resolve }) => {
 
             console.log('Response status:', response.status);
             console.log('Response headers:', Object.fromEntries(response.headers));
-            console.log('Response URL:', response.url);
 
             // Handle 204 No Content responses
             if (response.status === 204) {

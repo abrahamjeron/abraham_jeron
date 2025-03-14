@@ -1,87 +1,3 @@
-<!-- <script>
-    import { onMount } from 'svelte';
-    import { authStore } from '$lib/stores/authStore.js';
-    import { goto } from '$app/navigation';
-    import { get } from 'svelte/store';  // ✅ Correct way to access store value
-
-    let orders = [];
-    let loading = true;
-    let error = null;
-
-    onMount(async () => {
-        const auth = get(authStore);
-        if (!auth?.token) {
-            goto('/auth/request-otp');
-            return;
-        }else{
-            console.log("auth token"+auth.token)
-        }
-
-        try {
-            const res = await fetch('/api/v2/orders?onlyOrders=TRUE&period=TODAY', {
-                headers: {
-                    'Authorization': `Bearer ${auth.token}`,
-                    'Accept': 'application/json'
-                }
-            });
-
-            if (res.status === 200) {
-                const data = await res.json();
-                orders = data.orders || [];
-            } else {
-                try {
-                    const errorData = await res.json();
-                    error = errorData.message || 'Failed to fetch orders';
-                } catch {
-                    error = 'Failed to fetch orders';
-                }
-            }
-        } catch (err) {
-            console.error('Error fetching orders:', err);
-            error = 'Network error. Please try again.';
-        } finally {
-            loading = false;
-        }
-    });
-</script>
-
-<div class="p-6">
-    <h1 class="text-2xl font-bold mb-6">Today's Orders</h1>
-
-    {#if loading}
-        <div class="text-center">Loading orders...</div>
-    {:else if error}
-        <div class="text-red-500 text-center">{error}</div>
-    {:else if orders.length === 0}
-        <div class="text-center">No orders for today</div>
-    {:else}
-        <div class="grid gap-4">
-            {#each orders as order}
-                <div class="border rounded-lg p-4 shadow-sm">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <h2 class="font-semibold">Order #{order.id}</h2>
-                            <p class="text-gray-600">Status: {order.status}</p>
-                            <p class="text-gray-600">Total: ${order.total}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-sm text-gray-500">{new Date(order.created_at).toLocaleTimeString()}</p>
-                        </div>
-                    </div>
-                    <div class="mt-2">
-                        <h3 class="font-medium">Items:</h3>
-                        <ul class="list-disc list-inside">
-                            {#each order.items as item}
-                                <li>{item.name} x {item.quantity}</li>
-                            {/each}
-                        </ul>
-                    </div>
-                </div>
-            {/each}
-        </div>
-    {/if}
-</div> -->
-
 <script>
     import { onMount } from 'svelte';
     import { authStore } from '$lib/stores/authStore.js';
@@ -98,26 +14,43 @@
             goto('/auth/request-otp');
             return;
         } else {
-            console.log("Auth Token: ", auth.token);  // ✅ Improved console log for clarity
+            console.log("Auth Token: ", auth.token);
         }
 
         try {
-            const res = await fetch('https://api-tst.trymighty.com/v2/orders?onlyOrders=TRUE&period=TODAY', {
+            const queryParams = new URLSearchParams({
+                onlyOrders: 'true',
+                period: "YESTERDAY"
+            }).toString();
+
+            const requestURL = `/api/v2/orders?${queryParams}`;
+
+            console.log('Request URL:', requestURL);
+
+            const res = await fetch(requestURL, {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${auth.token}`,
-                    'Content-Type': 'application/json',  
-                    'Accept': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${auth.token}`
                 }
             });
 
+            console.log('Response status:', res.status);
+            console.log('Response headers:', Object.fromEntries(res.headers));
+
             if (res.ok) {
                 const data = await res.json();
-                orders = data.orders || [];
-                console.log(orders)
+                console.log('Orders data:', data);
+                orders = data || [];
             } else {
                 const errorData = await res.json().catch(() => ({}));
-                error = errorData.message || 'Failed to fetch orders';
+                console.log('Error data:', errorData);
+                if (errorData.detail?.id === 'document-not-listed') {
+                    error = 'No orders found for today';
+                } else {
+                    error = errorData.message || 'Failed to fetch orders';
+                }
             }
         } catch (err) {
             console.error('Error fetching orders:', err);
@@ -126,38 +59,86 @@
             loading = false;
         }
     });
+
+    function formatDate(dateString) {
+        return new Date(dateString).toLocaleString();
+    }
+
+    function getStatusText(statusId) {
+        switch (statusId) {
+            case 9:
+                return 'Paid';
+            case 10:
+                return 'Pending Payment';
+            case 12:
+                return 'Fulfilled';
+            default:
+                return 'Unknown';
+        }
+    }
+
+    function getStatusColor(statusId) {
+        switch (statusId) {
+            case 9:
+                return 'text-yellow-600';
+            case 10:
+                return 'text-red-600';
+            case 12:
+                return 'text-green-600';
+            default:
+                return 'text-gray-600';
+        }
+    }
 </script>
 
 <div class="p-6">
     <h1 class="text-2xl font-bold mb-6">Today's Orders</h1>
 
     {#if loading}
-        <div class="text-center">Loading orders...</div>
+        <div class="text-center p-4">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+            <p class="mt-2">Loading orders...</p>
+        </div>
     {:else if error}
-        <div class="text-red-500 text-center">{error}</div>
+        <div class="text-red-500 text-center p-4 bg-red-50 rounded-lg">{error}</div>
     {:else if orders.length === 0}
-        <div class="text-center">No orders for today</div>
+        <div class="text-center p-4 bg-gray-50 rounded-lg">No orders for today</div>
     {:else}
         <div class="grid gap-4">
             {#each orders as order}
-                <div class="border rounded-lg p-4 shadow-sm">
+                <div class="border rounded-lg p-4 shadow-sm bg-white hover:shadow-md transition-shadow">
                     <div class="flex justify-between items-start">
-                        <div>
-                            <h2 class="font-semibold">Order #{order.id}</h2>
-                            <p class="text-gray-600">Status: {order.status}</p>
-                            <p class="text-gray-600">Total: ${order.total}</p>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <h2 class="font-semibold text-lg">Order #{order.id}</h2>
+                                <span class={`px-2 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status.id)}`}>
+                                    {getStatusText(order.status.id)}
+                                </span>
+                            </div>
+                            <div class="text-gray-600">
+                                <p class="text-sm">
+                                    <span class="font-medium">Customer:</span> 
+                                    {order.customer?.name || 'Anonymous'}
+                                </p>
+                                <p class="text-sm">
+                                    <span class="font-medium">Kiosk:</span> 
+                                    {order.kiosk.code}
+                                </p>
+                                <p class="text-sm">
+                                    <span class="font-medium">Amount:</span> 
+                                    {order.amount.value.toFixed(2)} {order.amount.currency}
+                                </p>
+                            </div>
                         </div>
-                        <div class="text-right">
-                            <p class="text-sm text-gray-500">{new Date(order.created_at).toLocaleTimeString()}</p>
+                        <div class="text-right space-y-1">
+                            <p class="text-sm text-gray-500">Created: {formatDate(order.created.at)}</p>
+                            {#if order.paid.at}
+                                <p class="text-sm text-gray-500">Paid: {formatDate(order.paid.at)}</p>
+                            {/if}
+                            {#if order.fulfilled.at}
+                                <p class="text-sm text-gray-500">Fulfilled: {formatDate(order.fulfilled.at)}</p>
+                            {/if}
                         </div>
-                    </div>
-                    <div class="mt-2">
-                        <h3 class="font-medium">Items:</h3>
-                        <ul class="list-disc list-inside">
-                            {#each order.items as item}
-                                <li>{item.name} x {item.quantity}</li>
-                            {/each}
-                        </ul>
                     </div>
                 </div>
             {/each}
