@@ -5,8 +5,20 @@
     import { get } from 'svelte/store';
 
     let orders = [];
+    let filteredOrders = [];
+    let searchTerm = '';
     let loading = true;
     let error = null;
+
+    $: {
+        // Reactive statement to filter orders whenever searchTerm changes
+        if (orders) {
+            filteredOrders = orders.filter(order => {
+                const customerName = order.customer?.name || 'Anonymous';
+                return customerName.toLowerCase().includes(searchTerm.toLowerCase());
+            });
+        }
+    }
 
     onMount(async () => {
         const auth = get(authStore);
@@ -37,20 +49,15 @@
             });
 
             console.log('Response status:', res.status);
-            console.log('Response headers:', Object.fromEntries(res.headers));
 
             if (res.ok) {
                 const data = await res.json();
                 console.log('Orders data:', data);
                 orders = data || [];
+                filteredOrders = orders; // Initialize filteredOrders with all orders
             } else {
                 const errorData = await res.json().catch(() => ({}));
-                console.log('Error data:', errorData);
-                if (errorData.detail?.id === 'document-not-listed') {
-                    error = 'No orders found for today';
-                } else {
-                    error = errorData.message || 'Failed to fetch orders';
-                }
+                error = errorData.message || 'Failed to fetch orders';
             }
         } catch (err) {
             console.error('Error fetching orders:', err);
@@ -66,6 +73,8 @@
 
     function getStatusText(statusId) {
         switch (statusId) {
+            case 0:
+                return 'Cancelled';
             case 9:
                 return 'Paid';
             case 10:
@@ -79,12 +88,14 @@
 
     function getStatusColor(statusId) {
         switch (statusId) {
+            case 0:
+                return 'bg-[#FEEAE0] text-red-600';
             case 9:
-                return 'text-yellow-600';
+                return 'bg-[#DEFCEE] text-green-600';
             case 10:
-                return 'text-red-600';
+                return 'bg-[#FEEAE0] text-red-600';
             case 12:
-                return 'text-green-600';
+                return 'bg-[#F2EBFF] text-[#5A3EB4]';
             default:
                 return 'text-gray-600';
         }
@@ -101,48 +112,53 @@
         </div>
     {:else if error}
         <div class="text-red-500 text-center p-4 bg-red-50 rounded-lg">{error}</div>
-    {:else if orders.length === 0}
-        <div class="text-center p-4 bg-gray-50 rounded-lg">No orders for today</div>
     {:else}
-        <div class="grid gap-4">
-            {#each orders as order}
-            <button class="border-2 " on:click={()=>goto(`/orders/${order.id}`)}>
-                <div class="border rounded-lg p-4 shadow-sm bg-white hover:shadow-md transition-shadow">
-                    <div class="flex justify-between items-start">
-                        <div class="space-y-2">
-                            <div class="flex items-center gap-2">
-                                <h2 class="font-semibold text-lg">Order #{order.id}</h2>
-                                <span class={`px-2 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status.id)}`}>
-                                    {getStatusText(order.status.id)}
-                                </span>
-                            </div>
-                            <div class="text-gray-600">
-                                <p class="text-sm">
-                                    <span class="font-medium">Customer:</span> 
-                                    {order.customer?.name || 'Anonymous'}
-                                </p>
-                                <p class="text-sm">
-                                    <span class="font-medium">Kiosk:</span> 
-                                    {order.kiosk.code}
-                                </p>
-                                <p class="text-sm">
-                                    <span class="font-medium">Amount:</span> 
-                                    {order.amount.value.toFixed(2)} {order.amount.currency}
-                                </p>
-                            </div>
+        <input 
+            type="text" 
+            class="w-full p-2 border-2 border-gray-200 mb-4" 
+            placeholder="Search orders by username" 
+            bind:value={searchTerm}
+        />
+
+        <div class="grid grid-cols-6 gap-4 mb-4 px-4 text-sm font-medium text-gray-500">
+            <div class="col-span-2">Customer</div>
+            <div class="text-center">Created</div>
+            <div class="text-center">Kiosk</div>
+            <div class="text-center">Status</div>
+            <div class="text-center">Amount</div>
+        </div>
+
+        <div class="grid">
+            {#each filteredOrders as order}
+                <button 
+                    class="w-full p-4 border-b-2 border-gray-200 hover:shadow-md transition-shadow"
+                    on:click={() => goto(`/orders/${order.id}`)}
+                >
+                    <div class="grid grid-cols-6 gap-4 items-center">
+                        <div class="col-span-2 text-left">
+                            <h3 class="text-lg font-semibold text-gray-900">{order.customer?.name || 'Anonymous'}</h3>
+                            <p class="text-sm text-gray-500">#{order.id}</p>
                         </div>
-                        <div class="text-right space-y-1">
-                            <p class="text-sm text-gray-500">Created: {formatDate(order.created.at)}</p>
-                            {#if order.paid.at}
-                                <p class="text-sm text-gray-500">Paid: {formatDate(order.paid.at)}</p>
-                            {/if}
-                            {#if order.fulfilled.at}
-                                <p class="text-sm text-gray-500">Fulfilled: {formatDate(order.fulfilled.at)}</p>
-                            {/if}
+
+                        <div class="text-center">
+                            <p class="text-gray-900">{new Date(order.created.at).toLocaleDateString()}</p>
+                        </div>
+
+                        <div class="text-center">
+                            <p class="text-gray-900">{order.kiosk.code}</p>
+                        </div>
+
+                        <div class="text-center">
+                            <span class={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status.id)}`}>
+                                {getStatusText(order.status.id)}
+                            </span>
+                        </div>
+
+                        <div class="text-center">
+                            <p class="text-gray-900">{order.amount.value.toFixed(2)} {order.amount.currency}</p>
                         </div>
                     </div>
-                </div>
-            </button>
+                </button>
             {/each}
         </div>
     {/if}
