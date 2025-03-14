@@ -106,6 +106,7 @@
     {:else}
         <div class="grid gap-4">
             {#each orders as order}
+            <button class="border-2 " on:click={()=>goto(`/orders/${order.id}`)}>
                 <div class="border rounded-lg p-4 shadow-sm bg-white hover:shadow-md transition-shadow">
                     <div class="flex justify-between items-start">
                         <div class="space-y-2">
@@ -141,6 +142,7 @@
                         </div>
                     </div>
                 </div>
+            </button>
             {/each}
         </div>
     {/if}
