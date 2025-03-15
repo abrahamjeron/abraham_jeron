@@ -48,7 +48,7 @@
             }).toString();
 
             const requestURL = `/api/v2/orders?${queryParams}`;
-            console.log('Request URL:', requestURL);
+       
 
             const res = await fetch(requestURL, {
                 method: 'GET',
@@ -66,7 +66,7 @@
                 }).toString();
 
                 const retryURL = `/api/v2/orders?${retryParams}`;
-                console.log('Retrying with URL:', retryURL);
+                
 
                 const retryRes = await fetch(retryURL, {
                     method: 'GET',

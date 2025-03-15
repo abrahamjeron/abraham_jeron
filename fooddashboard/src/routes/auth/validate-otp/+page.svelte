@@ -38,7 +38,6 @@
             }
         };
 
-        console.log('Request body:', requestBody);
 
         const validateRes = await fetch('/api/v2/collaborators?action=validate-otp', {
             method: 'POST',
