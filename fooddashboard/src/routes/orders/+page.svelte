@@ -42,7 +42,7 @@
         try {
             const queryParams = new URLSearchParams({
                 onlyOrders: 'true',
-                period: "YESTERDAY"
+                period: "TODAY"
             }).toString();
 
             const requestURL = `/api/v2/orders?${queryParams}`;
@@ -56,6 +56,32 @@
                     'Authorization': `Bearer ${auth.token}`
                 }
             });
+
+            if (res.status === 404) {
+                const retryParams = new URLSearchParams({
+                    onlyOrders: 'true',
+                    period: "YESTERDAY"
+                }).toString();
+
+                const retryURL = `/api/v2/orders?${retryParams}`;
+                console.log('Retrying with URL:', retryURL);
+
+                const retryRes = await fetch(retryURL, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${auth.token}`
+                    }
+                });
+                
+                if (retryRes.ok) {
+                    const data = await retryRes.json();
+                    orders = data || [];
+                    filteredOrders = orders;
+                    return;
+                }
+            }
 
             if (res.ok) {
                 const data = await res.json();
