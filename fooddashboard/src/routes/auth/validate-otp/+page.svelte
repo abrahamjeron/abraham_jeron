@@ -1,12 +1,27 @@
 <script>
     import { goto } from '$app/navigation';
     import { authStore } from '$lib/stores/authStore.js';
+    import Logo from '../../../assets/Logo.svg'
 
     export let data;
 
-    let otpCode = '';
+    let otpCode = ['', '', '', ''];
+
+    function handleInput(event, index) {
+        const value = event.target.value;
+        if (/\d/.test(value)) {
+            otpCode[index] = value;
+            if (index < 3) {
+                document.getElementById(`otp-input-${index + 1}`).focus();
+            }
+        } else {
+            otpCode[index] = '';
+        }
+    }
 
     async function validateOTP() {
+        const enteredOTP = otpCode.join('');
+
         if (!data?.countryCode || !data?.phoneNumber) {
             alert('Phone number data is missing. Please try requesting OTP again.');
             goto('/auth/request-otp');
@@ -19,13 +34,12 @@
                 number: data.phoneNumber
             },
             otp: {
-                code: otpCode
+                code: enteredOTP
             }
         };
 
         console.log('Request body:', requestBody);
 
-        // First validate OTP
         const validateRes = await fetch('/api/v2/collaborators?action=validate-otp', {
             method: 'POST',
             headers: { 
@@ -35,45 +49,49 @@
             body: JSON.stringify(requestBody)
         });
 
-        console.log('Validate OTP Response status:', validateRes.status);
-        console.log('Validate OTP Response headers:', Object.fromEntries(validateRes.headers));
-
         if (validateRes.status === 204) {
-            // If OTP is valid, redirect to sign-in page
             goto(`/auth/sign-in?countryCode=${encodeURIComponent(data.countryCode)}&phoneNumber=${encodeURIComponent(data.phoneNumber)}`);
         } else {
-            try {
-                const responseClone = validateRes.clone();
-                const contentType = validateRes.headers.get('content-type');
-                
-                if (contentType?.includes('application/json')) {
-                    const errorData = await responseClone.json();
-                    console.log('Validate OTP Error data:', errorData);
-                    alert(`Failed to validate OTP: ${errorData.message || 'Unknown error'}`);
-                } else {
-                    const errorText = await validateRes.text();
-                    console.log('Validate OTP Error text:', errorText);
-                    alert(`Failed to validate OTP: ${errorText || 'Unknown error'}`);
-                }
-            } catch (error) {
-                console.error('Error handling validate OTP response:', error);
-                alert('Failed to process response. Please try again.');
-            }
+            alert('Failed to validate OTP. Please try again.');
         }
     }
 </script>
 
-<div class="flex flex-col items-center p-6">
-    <h1 class="text-2xl font-bold">Enter OTP</h1>
+<div class="min-h-screen bg-gray-100 flex flex-col">
+    <!-- Logo header -->
+    <div class="flex gap-x-2 p-5">
+        <img src={Logo} alt="Logo"> 
+        <h1 class="text-[1.3rem] font-bold">MIGHTY X ABRA</h1>
+    </div>
 
-    <input
-        type="text"
-        bind:value={otpCode}
-        placeholder="Enter OTP"
-        class="input"
-    />
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col items-center justify-center px-6 pb-6">
+        <div class="bg-white rounded-lg shadow-md w-full max-w-md p-8">
+            <h1 class="text-2xl font-bold text-center text-gray-900 mb-8">
+                Please enter the OTP you received in<br>your phone number
+            </h1>
 
-    <button on:click={validateOTP} class="btn-primary mt-4">
-        Verify OTP
-    </button>
+            <div class="flex justify-center gap-4 mb-10">
+                {#each otpCode as _, index}
+                    <div class="relative">
+                        <input
+                            id={`otp-input-${index}`}
+                            type="text"
+                            maxlength="1"
+                            class="w-12 h-14 text-center text-xl border-b-2 border-black focus:outline-none focus:border-blue-500"
+                            bind:value={otpCode[index]}
+                            on:input={(event) => handleInput(event, index)}
+                        />
+                    </div>
+                {/each}
+            </div>
+
+            <button 
+                on:click={validateOTP} 
+                class="w-full border-2 p-3 rounded-2xl bg-white text-black hover:text-white hover:bg-black transition-colors duration-200"
+            >
+                Verify OTP
+            </button>
+        </div>
+    </div>
 </div>
