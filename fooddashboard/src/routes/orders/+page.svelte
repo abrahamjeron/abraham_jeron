@@ -4,18 +4,30 @@
     import { goto } from '$app/navigation';
     import { get } from 'svelte/store';
     import SideBar from '$lib/components/SideBar.svelte';
+
     let orders = [];
     let filteredOrders = [];
     let searchTerm = '';
+    let statusFilter = '';
     let loading = true;
     let error = null;
 
+    const statusOptions = [
+        { id: '', label: 'All Statuses' },
+        { id: '0', label: 'Cancelled' },
+        { id: '9', label: 'Paid' },
+        { id: '10', label: 'Pending Payment' },
+        { id: '12', label: 'Fulfilled' }
+    ];
+
     $: {
-        // Reactive statement to filter orders whenever searchTerm changes
+        // Reactive statement to filter orders whenever searchTerm or statusFilter changes
         if (orders) {
             filteredOrders = orders.filter(order => {
                 const customerName = order.customer?.name || 'Anonymous';
-                return customerName.toLowerCase().includes(searchTerm.toLowerCase());
+                const matchesSearch = customerName.toLowerCase().includes(searchTerm.toLowerCase());
+                const matchesStatus = !statusFilter || order.status.id.toString() === statusFilter;
+                return matchesSearch && matchesStatus;
             });
         }
     }
@@ -25,18 +37,15 @@
         if (!auth?.token) {
             goto('/auth/request-otp');
             return;
-        } else {
-            console.log("Auth Token: ", auth.token);
         }
 
         try {
             const queryParams = new URLSearchParams({
                 onlyOrders: 'true',
-                period: "TODAY"
+                period: "YESTERDAY"
             }).toString();
 
             const requestURL = `/api/v2/orders?${queryParams}`;
-
             console.log('Request URL:', requestURL);
 
             const res = await fetch(requestURL, {
@@ -48,13 +57,10 @@
                 }
             });
 
-            console.log('Response status:', res.status);
-
             if (res.ok) {
                 const data = await res.json();
-                console.log('Orders data:', data);
                 orders = data || [];
-                filteredOrders = orders; // Initialize filteredOrders with all orders
+                filteredOrders = orders;
             } else {
                 const errorData = await res.json().catch(() => ({}));
                 error = errorData.message || 'Failed to fetch orders';
@@ -72,18 +78,8 @@
     }
 
     function getStatusText(statusId) {
-        switch (statusId) {
-            case 0:
-                return 'Cancelled';
-            case 9:
-                return 'Paid';
-            case 10:
-                return 'Pending Payment';
-            case 12:
-                return 'Fulfilled';
-            default:
-                return 'Unknown';
-        }
+        const status = statusOptions.find(s => s.id === statusId.toString());
+        return status ? status.label : 'Unknown';
     }
 
     function getStatusColor(statusId) {
@@ -118,12 +114,23 @@
             {:else if error}
                 <div class="text-red-500 text-center p-4 bg-red-50 rounded-lg">{error}</div>
             {:else}
-                <input 
-                    type="text" 
-                    class="w-full p-2 border-2 border-gray-200 mb-4 rounded-lg" 
-                    placeholder="Search orders by username" 
-                    bind:value={searchTerm}
-                />
+                <div class="grid  gap-4 mb-4 bg-white p-4 ">
+                    <input 
+                        type="text" 
+                        class="w-full p-2 border-2 border-gray-200 rounded-lg" 
+                        placeholder="Search orders by customer name" 
+                        bind:value={searchTerm}
+                    />
+
+                    <select 
+                        class="w-[200px] p-2 border-2 border-gray-200 rounded-lg" 
+                        bind:value={statusFilter}
+                    >
+                        {#each statusOptions as status}
+                            <option value={status.id}>{status.label}</option>
+                        {/each}
+                    </select>
+                </div>
 
                 <!-- Table Header -->
                 <div class="grid grid-cols-6 gap-4 px-4 py-2 text-sm font-medium text-gray-500 bg-gray-50 rounded-t-lg">
